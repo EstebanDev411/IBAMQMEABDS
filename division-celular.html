@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>División Celular</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --black: #000000;
+      --bg: #080810;
+      --surface: rgba(255,255,255,0.04);
+      --surface2: rgba(255,255,255,0.08);
+      --border: rgba(255,255,255,0.09);
+      --text: #f5f5f7;
+      --muted: rgba(245,245,247,0.52);
+      --blue: #0a84ff;
+      --purple: #bf5af2;
+      --green: #30d158;
+      --red: #ff375f;
+      --orange: #ff9f0a;
+      --teal: #5ac8fa;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--black);
+      color: var(--text);
+      font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      overflow-x: hidden;
+      cursor: default;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+    /* ─── PARTICLES ─── */
+    #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .pt {
+      position: absolute;
+      border-radius: 50%;
+      animation: riseUp linear infinite;
+    }
+    @keyframes riseUp {
+      0%   { transform: translateY(105vh) scale(0.4); opacity: 0; }
+      8%   { opacity: 1; }
+      88%  { opacity: 0.7; }
+      100% { transform: translateY(-5vh)  scale(1.2); opacity: 0; }
+    }
+
+    /* ─── WIPE SQUARE (game transition) ─── */
+    #wipe {
+      position: fixed; inset: 0; z-index: 9999;
+      background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+      transform: translateX(110%);
+      pointer-events: none;
+      will-change: transform;
+    }
+    #wipe.go { animation: wipeSweep 0.9s cubic-bezier(0.76,0,0.24,1) forwards; }
+    @keyframes wipeSweep {
+      0%   { transform: translateX(110%); }
+      45%  { transform: translateX(0%); }
+      55%  { transform: translateX(0%); }
+      100% { transform: translateX(-110%); }
+    }
+
+    /* ─── HERO ─── */
+    #hero {
+      position: relative; min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; z-index: 1;
+      padding: 40px 24px;
+      overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute; width: 700px; height: 700px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(10,132,255,0.14) 0%, transparent 68%);
+      pointer-events: none;
+      animation: breathe 5s ease-in-out infinite;
+    }
+    .hero-glow2 {
+      position: absolute; width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(191,90,242,0.08) 0%, transparent 68%);
+      pointer-events: none;
+      animation: breathe 5s ease-in-out 2.5s infinite;
+    }
+    @keyframes breathe {
+      0%,100% { transform: scale(1);    opacity: 0.5; }
+      50%      { transform: scale(1.18); opacity: 1; }
+    }
+    .hero-label {
+      font-size: 12px; font-weight: 600;
+      letter-spacing: 0.24em; text-transform: uppercase;
+      color: var(--blue); position: relative;
+      opacity: 0; animation: fadeUp 0.7s ease 3.6s forwards;
+    }
+    .title-wrap { display: flex; align-items: center; gap: 0.28em; margin: 18px 0 22px; position: relative; }
+    /* Slider handles X translation for both words */
+    .title-slider {
+      display: flex; align-items: center; gap: 0.28em;
+      animation: bikeSlam 1.5s cubic-bezier(0.16,1,0.3,1) 0.3s both;
+    }
+    @keyframes bikeSlam {
+      0%   { transform: translateX(-170vw); opacity: 0; }
+      55%  { opacity: 1; }
+      64%  { transform: translateX(22px); }
+      74%  { transform: translateX(-8px); }
+      83%  { transform: translateX(3px); }
+      100% { transform: translateX(0);   opacity: 1; }
+    }
+    .t1 {
+      display: inline-block;
+      font-size: clamp(44px, 9vw, 108px);
+      font-weight: 700; letter-spacing: -0.03em;
+      color: var(--text);
+    }
+    /* Rear-wheel wrapper pivots from left edge */
+    .t2-wrap {
+      display: inline-block;
+      transform-origin: left center;
+      animation: rearLift 1.5s cubic-bezier(0.16,1,0.3,1) 0.3s both;
+    }
+    @keyframes rearLift {
+      0%   { transform: rotate(0deg); }
+      64%  { transform: rotate(0deg); }
+      70%  { transform: rotate(-26deg); }   /* rear wheel lifts on brake */
+      80%  { transform: rotate(-13deg); }
+      90%  { transform: rotate(-4deg); }
+      100% { transform: rotate(0deg); }
+    }
+    .t2 {
+      display: inline-block;
+      font-size: clamp(44px, 9vw, 108px);
+      font-weight: 700; letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: clamp(16px, 2.2vw, 21px);
+      font-weight: 300; color: var(--muted);
+      max-width: 560px; line-height: 1.6;
+      opacity: 0; animation: fadeUp 0.8s ease 2.1s forwards;
+    }
+    .hero-scroll {
+      position: absolute; bottom: 40px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      opacity: 0; animation: fadeUp 0.8s ease 4s forwards;
+    }
+    .scroll-label { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .scroll-bar {
+      width: 1px; height: 44px;
+      background: linear-gradient(to bottom, var(--blue), transparent);
+      animation: scrollPulse 2.2s ease-in-out 4.5s infinite;
+    }
+    @keyframes scrollPulse {
+      0%   { transform: scaleY(0); transform-origin: top;    opacity: 0; }
+      50%  { transform: scaleY(1); transform-origin: top;    opacity: 1; }
+      51%  { transform-origin: bottom; }
+      100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── DIVIDER ─── */
+    .divider {
+      width: 100%; height: 1px;
+      background: linear-gradient(to right, transparent, var(--border), transparent);
+      position: relative; z-index: 1;
+    }
+
+    /* ─── SECTION BASE ─── */
+    .sec {
+      position: relative; z-index: 1;
+      padding: 110px clamp(24px,6vw,80px);
+      max-width: 1200px; margin: 0 auto;
+    }
+    .sec-full {
+      position: relative; z-index: 1;
+      padding: 110px clamp(24px,6vw,80px);
+    }
+
+    /* Scroll-reveal classes */
+    .reveal { opacity: 0; transform: translateY(32px); transition: opacity 0.75s ease, transform 0.75s ease; }
+    .reveal.d1 { transition-delay: 0.05s; }
+    .reveal.d2 { transition-delay: 0.15s; }
+    .reveal.d3 { transition-delay: 0.25s; }
+    .reveal.d4 { transition-delay: 0.35s; }
+    .reveal.d5 { transition-delay: 0.45s; }
+    .reveal.show { opacity: 1; transform: translateY(0); }
+
+    .chip {
+      display: inline-block; padding: 4px 14px;
+      background: rgba(10,132,255,0.15); border: 1px solid rgba(10,132,255,0.35);
+      border-radius: 100px; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--blue);
+      margin-bottom: 18px;
+    }
+    .chip.purple { background: rgba(191,90,242,0.15); border-color: rgba(191,90,242,0.35); color: var(--purple); }
+    .chip.green  { background: rgba(48,209,88,0.15);  border-color: rgba(48,209,88,0.35);  color: var(--green); }
+    .chip.orange { background: rgba(255,159,10,0.15); border-color: rgba(255,159,10,0.35); color: var(--orange); }
+
+    h2.sec-title {
+      font-size: clamp(30px, 5vw, 58px);
+      font-weight: 700; letter-spacing: -0.025em;
+      line-height: 1.08; margin-bottom: 18px;
+    }
+    p.sec-desc {
+      font-size: 17px; font-weight: 300;
+      color: var(--muted); line-height: 1.75;
+      max-width: 600px; margin-bottom: 0;
+    }
+
+    /* ─── INTRO SECTION ─── */
+    #intro { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+    @media(max-width:768px) { #intro { grid-template-columns: 1fr; gap: 50px; } }
+
+    .word-reveal-text {
+      font-size: 18px; line-height: 1.85; color: var(--muted); font-weight: 300;
+    }
+    .word-reveal-text .w {
+      display: inline;
+      opacity: 0; filter: blur(6px);
+      transition: opacity 0.4s ease, filter 0.4s ease;
+    }
+    .word-reveal-text .w.show { opacity: 1; filter: blur(0); }
+
+    .intro-visual { position: relative; display: flex; align-items: center; justify-content: center; }
+    .cell-photo {
+      width: 100%; max-width: 380px; height: 380px;
+      object-fit: cover; border-radius: 24px;
+      border: 1px solid var(--border);
+      opacity: 0; transition: opacity 1s ease 0.5s;
+    }
+    .cell-photo.show { opacity: 1; }
+    .photo-glow-ring {
+      position: absolute; inset: -20px; border-radius: 50%;
+      border: 1px solid rgba(10,132,255,0.2);
+      animation: ringPulse 3s ease-in-out infinite;
+    }
+    .photo-glow-ring2 {
+      position: absolute; inset: -40px; border-radius: 50%;
+      border: 1px solid rgba(191,90,242,0.12);
+      animation: ringPulse 3s ease-in-out 1.5s infinite;
+    }
+    @keyframes ringPulse {
+      0%,100% { transform: scale(1);    opacity: 1; }
+      50%      { transform: scale(1.05); opacity: 0.4; }
+    }
+    /* Fallback if no photo */
+    .photo-fallback {
+      width: 340px; height: 340px;
+      background: radial-gradient(ellipse at 40% 40%, rgba(10,132,255,0.25), rgba(191,90,242,0.1) 60%, transparent);
+      border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ─── LIVE ANIMATED CELL (intro visual) ─── */
+    .live-cell-svg { animation: cellFloat 4s ease-in-out infinite; }
+    @keyframes cellFloat {
+      0%,100% { transform: translateY(0)   rotate(0deg); }
+      33%      { transform: translateY(-12px) rotate(2deg); }
+      66%      { transform: translateY(8px)  rotate(-1.5deg); }
+    }
+
+    /* ─── CICLO CELULAR ─── */
+    #cell-cycle { text-align: center; }
+    .cycle-wrap {
+      display: flex; align-items: center; justify-content: center;
+      gap: 60px; margin-top: 64px; flex-wrap: wrap;
+    }
+    .cycle-svg-wrap { position: relative; width: 340px; height: 340px; }
+    .cycle-svg-wrap svg { width: 100%; height: 100%; }
+    .cycle-center-label {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .cycle-center-label span:first-child { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; }
+    .cycle-center-label span:last-child  { font-size: 28px; font-weight: 700; color: var(--text); }
+
+    .cycle-legend { display: flex; flex-direction: column; gap: 20px; max-width: 280px; }
+    .legend-item {
+      display: flex; align-items: flex-start; gap: 14px;
+      opacity: 0; transform: translateX(20px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .legend-item.show { opacity: 1; transform: translateX(0); }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+    .legend-item h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .legend-item p  { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    /* ─── MITOSIS ─── */
+    #mitosis { }
+    .phases-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 18px; margin-top: 60px;
+    }
+    .phase-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 22px; padding: 28px 20px 24px;
+      text-align: center;
+      opacity: 0; transform: translateY(36px) scale(0.96);
+      transition: opacity 0.6s ease, transform 0.6s ease, background 0.25s, border-color 0.25s;
+      position: relative; overflow: hidden;
+      cursor: default;
+    }
+    .phase-card::before {
+      content: ''; position: absolute; inset: 0; opacity: 0;
+      background: linear-gradient(135deg, rgba(10,132,255,0.06), rgba(191,90,242,0.06));
+      transition: opacity 0.3s ease;
+    }
+    .phase-card:hover::before { opacity: 1; }
+    .phase-card:hover { background: var(--surface2); border-color: rgba(255,255,255,0.16); transform: translateY(-5px) scale(1) !important; }
+    .phase-card.show { opacity: 1; transform: translateY(0) scale(1); }
+
+    .phase-icon { width: 110px; height: 110px; margin: 0 auto 16px; }
+    .phase-name { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .phase-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .phase-badge {
+      display: inline-block; margin-top: 12px;
+      padding: 3px 10px; border-radius: 100px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+      background: rgba(10,132,255,0.15); color: var(--blue);
+      border: 1px solid rgba(10,132,255,0.25);
+    }
+
+    /* ─── MEIOSIS ─── */
+    .meiosis-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+      margin-top: 60px; align-items: start;
+    }
+    @media(max-width:768px) { .meiosis-grid { grid-template-columns: 1fr; } }
+    .meiosis-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 22px; padding: 32px 28px;
+      opacity: 0; transform: translateY(30px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .meiosis-card.show { opacity: 1; transform: translateY(0); }
+    .meiosis-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+    .meiosis-card p  { font-size: 14px; color: var(--muted); line-height: 1.65; }
+    .meiosis-visual-svg { margin: 20px auto 0; display: block; }
+
+    /* Crossing over animated line */
+    .co-path { stroke-dasharray: 200; stroke-dashoffset: 200; }
+    .co-path.animate { animation: drawLine 1.5s ease 0.5s forwards; }
+    @keyframes drawLine { to { stroke-dashoffset: 0; } }
+
+    /* ─── PHOTO STRIP ─── */
+    .photo-strip {
+      display: flex; gap: 16px; margin: 60px 0;
+      overflow: hidden;
+    }
+    .strip-photo {
+      flex: 1; height: 240px; border-radius: 18px;
+      object-fit: cover; border: 1px solid var(--border);
+      min-width: 0;
+      opacity: 0; transform: scale(0.95);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    .strip-photo.show { opacity: 1; transform: scale(1); }
+    .strip-photo-fallback {
+      flex: 1; height: 240px; border-radius: 18px;
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: var(--muted); letter-spacing: 0.1em;
+      min-width: 0;
+    }
+
+    /* ─── COMPARE ─── */
+    #compare { }
+    .compare-wrap { margin-top: 60px; overflow-x: auto; }
+    .compare-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 15px;
+    }
+    .compare-table thead th {
+      padding: 16px 20px; text-align: left; font-size: 13px;
+      font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    .compare-table thead th:nth-child(2) { color: var(--blue); }
+    .compare-table thead th:nth-child(3) { color: var(--purple); }
+    .compare-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      opacity: 0; transform: translateX(-20px);
+      transition: opacity 0.5s ease, transform 0.5s ease, background 0.2s;
+    }
+    .compare-table tbody tr.show { opacity: 1; transform: translateX(0); }
+    .compare-table tbody tr:hover { background: var(--surface); }
+    .compare-table td { padding: 18px 20px; color: var(--muted); vertical-align: top; }
+    .compare-table td:first-child { color: var(--text); font-weight: 500; }
+    .val-blue   { color: var(--blue)   !important; font-weight: 500; }
+    .val-purple { color: var(--purple) !important; font-weight: 500; }
+
+    /* ─── GAME SECTION ─── */
+    #game-section { }
+    .game-outer {
+      position: relative;
+      max-width: 740px; margin: 50px auto 0;
+      overflow: hidden; border-radius: 28px;
+    }
+    #game-intro, #game-play {
+      background: var(--surface);
+      border: 1px solid var(--border); border-radius: 28px;
+      padding: 50px 48px;
+    }
+    #game-play { display: none; }
+    .play-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 14px 36px; border-radius: 100px; border: none;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      color: #fff; font-size: 16px; font-weight: 600;
+      cursor: pointer; margin-top: 28px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      font-family: inherit;
+    }
+    .play-btn:hover { transform: scale(1.04); box-shadow: 0 8px 32px rgba(10,132,255,0.35); }
+    .play-btn:active { transform: scale(0.98); }
+
+    .game-progress { display: flex; gap: 8px; margin-bottom: 32px; }
+    .prog-dot {
+      flex: 1; height: 3px; border-radius: 2px;
+      background: var(--border);
+      transition: background 0.4s ease;
+    }
+    .prog-dot.done { background: var(--blue); }
+    .prog-dot.active { background: var(--purple); }
+
+    .game-cell-wrap { display: flex; justify-content: center; margin-bottom: 30px; }
+    .game-question { font-size: 19px; font-weight: 600; margin-bottom: 22px; text-align: center; }
+    .game-options {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .opt-btn {
+      padding: 14px 18px; border-radius: 14px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text);
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: all 0.2s ease; font-family: inherit;
+      text-align: left; position: relative; overflow: hidden;
+    }
+    .opt-btn:hover { background: var(--surface2); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+    .opt-btn.correct { background: rgba(48,209,88,0.15); border-color: var(--green); color: var(--green); }
+    .opt-btn.wrong   { background: rgba(255,55,95,0.12);  border-color: var(--red);   color: var(--red);   }
+    .opt-btn:disabled { cursor: default; transform: none; }
+
+    .game-feedback {
+      text-align: center; font-size: 15px; font-weight: 500;
+      min-height: 28px; margin-top: 18px;
+      transition: opacity 0.3s ease;
+    }
+    .game-feedback.ok  { color: var(--green); }
+    .game-feedback.err { color: var(--red); }
+
+    .next-btn {
+      display: none; margin: 20px auto 0;
+      padding: 12px 32px; border-radius: 100px; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--text);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s ease; font-family: inherit;
+    }
+    .next-btn:hover { background: rgba(10,132,255,0.2); border-color: var(--blue); }
+    .next-btn.show { display: block; }
+
+    .game-result { text-align: center; }
+    .result-score {
+      font-size: 80px; font-weight: 700; letter-spacing: -0.04em;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 16px 0 8px;
+    }
+    .result-msg { font-size: 17px; color: var(--muted); line-height: 1.6; }
+    .replay-btn {
+      padding: 12px 32px; border-radius: 100px; border: none;
+      background: var(--surface2); color: var(--text);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s ease; font-family: inherit; margin-top: 24px;
+      border: 1px solid var(--border);
+    }
+    .replay-btn:hover { background: var(--surface2); border-color: rgba(255,255,255,0.2); }
+
+    /* ─── STATS ─── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+      margin-top: 60px;
+    }
+    @media(max-width:768px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 22px; padding: 36px 24px; text-align: center;
+      opacity: 0; transform: scale(0.92);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .stat-card.show { opacity: 1; transform: scale(1); }
+    .stat-num {
+      font-size: 48px; font-weight: 700; letter-spacing: -0.03em;
+      margin-bottom: 6px;
+    }
+    .stat-label { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .stat-sub   { font-size: 11px; color: var(--muted); opacity: 0.6; margin-top: 6px; }
+
+    /* ─── DNA HELIX DECORATION ─── */
+    .dna-section {
+      position: relative; z-index: 1;
+      display: flex; justify-content: center; padding: 40px 0;
+      overflow: hidden;
+    }
+
+    /* ─── FOOTER ─── */
+    footer {
+      position: relative; z-index: 1;
+      padding: 60px clamp(24px,6vw,80px);
+      text-align: center; border-top: 1px solid var(--border);
+    }
+    .footer-logo {
+      font-size: 14px; font-weight: 700; letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 12px;
+    }
+    footer p { font-size: 12px; color: var(--muted); letter-spacing: 0.05em; }
+
+    /* ─── ANIMATIONS EXTRAS ─── */
+    @keyframes spinSlow  { to { transform: rotate(360deg); } }
+    @keyframes spinSlow2 { to { transform: rotate(-360deg); } }
+    @keyframes popIn     { 0% { transform: scale(0); opacity: 0; } 80% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes glowPulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+  </style>
+</head>
+<body>
+
+<!-- Wipe Square transition -->
+<div id="wipe"></div>
+
+<!-- Floating Particles -->
+<div id="particles"></div>
+
+<!-- ═══════════════════════ HERO ═══════════════════════ -->
+<div id="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+
+  <!-- Orbiting cell rings -->
+  <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0.07" viewBox="0 0 800 600">
+    <ellipse cx="400" cy="300" rx="280" ry="200" fill="none" stroke="#0a84ff" stroke-width="1" stroke-dasharray="6 8"
+      style="transform-origin:400px 300px;animation:spinSlow 30s linear infinite"/>
+    <ellipse cx="400" cy="300" rx="180" ry="260" fill="none" stroke="#bf5af2" stroke-width="1" stroke-dasharray="4 10"
+      style="transform-origin:400px 300px;animation:spinSlow2 22s linear infinite"/>
+  </svg>
+
+  <p class="hero-label">Biología Celular · Infografía</p>
+
+  <div class="title-wrap">
+    <div class="title-slider">
+      <span class="t1">DIVISIÓN</span>
+      <span class="t2-wrap"><span class="t2">CELULAR</span></span>
+    </div>
+  </div>
+
+  <p class="hero-sub">El proceso fundamental por el cual una célula madre se divide para dar origen a nuevas células — la base de todo crecimiento, reparación y reproducción de la vida.</p>
+
+  <div class="hero-scroll">
+    <span class="scroll-label">Desplaza</span>
+    <div class="scroll-bar"></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════ ¿QUÉ ES? ═══════════════════════ -->
+<section id="intro" class="sec">
+  <!-- Text column -->
+  <div>
+    <div class="chip reveal">Definición</div>
+    <h2 class="sec-title reveal d1">¿Qué es la<br>División Celular?</h2>
+    <p class="word-reveal-text reveal d2" id="intro-text">
+      La división celular es el proceso biológico por el cual una célula madre se divide para producir dos o más células hijas. Es esencial para el crecimiento de los organismos, la reparación de tejidos dañados y la reproducción. Existen dos mecanismos principales: la mitosis, que genera células somáticas idénticas, y la meiosis, que produce gametos haploides para la reproducción sexual.
+    </p>
+    <br>
+    <p class="word-reveal-text reveal d3" id="intro-text2">
+      Sin la división celular, ningún organismo podría crecer, regenerarse ni reproducirse. Es el proceso que conecta generaciones y mantiene la continuidad de la vida en la Tierra.
+    </p>
+  </div>
+
+  <!-- Visual column -->
+  <div class="intro-visual reveal d2">
+    <div class="photo-glow-ring"></div>
+    <div class="photo-glow-ring2"></div>
+    <img src="assets/microscopio.jpg" alt="Célula dividiéndose" class="cell-photo" id="introPhoto"
+      style="border-radius:50%;width:320px;height:320px;object-fit:cover;"
+      onerror="this.style.display='none';document.getElementById('cellSvgFallback').style.display='flex'">
+    <!-- SVG fallback animated cell -->
+    <div id="cellSvgFallback" style="display:flex">
+      <svg class="live-cell-svg" width="320" height="320" viewBox="0 0 160 160">
+        <!-- Membrane -->
+        <ellipse cx="80" cy="80" rx="72" ry="70" fill="rgba(10,132,255,0.08)" stroke="#0a84ff" stroke-width="1.5" stroke-dasharray="0"/>
+        <!-- Nucleus -->
+        <ellipse cx="80" cy="80" rx="30" ry="28" fill="rgba(191,90,242,0.15)" stroke="#bf5af2" stroke-width="1.2"/>
+        <!-- Chromatin -->
+        <path d="M68,76 Q75,70 82,76 Q89,82 96,76" stroke="#bf5af2" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M70,84 Q77,78 84,84" stroke="#bf5af2" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <!-- Organelles -->
+        <ellipse cx="112" cy="60" rx="10" ry="5" fill="rgba(48,209,88,0.2)" stroke="#30d158" stroke-width="1" transform="rotate(-20,112,60)"/>
+        <ellipse cx="52" cy="110" rx="9" ry="4" fill="rgba(48,209,88,0.2)" stroke="#30d158" stroke-width="1" transform="rotate(15,52,110)"/>
+        <ellipse cx="120" cy="105" rx="8" ry="4" fill="rgba(48,209,88,0.15)" stroke="#30d158" stroke-width="0.8" transform="rotate(-10,120,105)"/>
+        <circle cx="40" cy="50" r="5" fill="rgba(255,159,10,0.2)" stroke="#ff9f0a" stroke-width="0.8"/>
+        <circle cx="130" cy="80" r="4" fill="rgba(255,159,10,0.15)" stroke="#ff9f0a" stroke-width="0.8"/>
+        <!-- Centrioles -->
+        <rect x="74" y="44" width="12" height="4" rx="2" fill="rgba(90,200,250,0.4)" stroke="#5ac8fa" stroke-width="0.8"/>
+        <rect x="74" y="50" width="12" height="4" rx="2" fill="rgba(90,200,250,0.3)" stroke="#5ac8fa" stroke-width="0.8"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════ CICLO CELULAR ═══════════════════════ -->
+<section id="cell-cycle" class="sec" style="text-align:center">
+  <div class="chip green reveal">Ciclo Celular</div>
+  <h2 class="sec-title reveal d1">El ciclo de la vida celular</h2>
+  <p class="sec-desc reveal d2" style="margin: 0 auto 0">Antes de dividirse, cada célula pasa por un ciclo ordenado de fases que garantizan la duplicación precisa de su material genético.</p>
+
+  <div class="cycle-wrap">
+    <div class="cycle-svg-wrap reveal d3">
+      <svg viewBox="0 0 300 300" id="cycleSvg">
+        <!-- Background circle -->
+        <circle cx="150" cy="150" r="130" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="24"/>
+        <!-- G1 segment -->
+        <circle id="seg-g1" cx="150" cy="150" r="130" fill="none" stroke="#0a84ff" stroke-width="24"
+          stroke-dasharray="122 695" stroke-dashoffset="204" stroke-linecap="butt" opacity="0.9"/>
+        <!-- S segment -->
+        <circle id="seg-s" cx="150" cy="150" r="130" fill="none" stroke="#30d158" stroke-width="24"
+          stroke-dasharray="81 695" stroke-dashoffset="82" stroke-linecap="butt" opacity="0.9"/>
+        <!-- G2 segment -->
+        <circle id="seg-g2" cx="150" cy="150" r="130" fill="none" stroke="#ff9f0a" stroke-width="24"
+          stroke-dasharray="65 695" stroke-dashoffset="1" stroke-linecap="butt" opacity="0.9"/>
+        <!-- M segment -->
+        <circle id="seg-m" cx="150" cy="150" r="130" fill="none" stroke="#bf5af2" stroke-width="24"
+          stroke-dasharray="552 695" stroke-dashoffset="-144" stroke-linecap="butt" opacity="0.9"/>
+        <!-- Inner decorative ring -->
+        <circle cx="150" cy="150" r="100" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <!-- Phase labels on ring -->
+        <text x="150" y="26" text-anchor="middle" fill="#0a84ff" font-size="11" font-weight="700" letter-spacing="1">G1</text>
+        <text x="280" y="100" text-anchor="middle" fill="#30d158" font-size="11" font-weight="700" letter-spacing="1">S</text>
+        <text x="270" y="220" text-anchor="middle" fill="#ff9f0a" font-size="11" font-weight="700" letter-spacing="1">G2</text>
+        <text x="66" y="210" text-anchor="middle" fill="#bf5af2" font-size="11" font-weight="700" letter-spacing="1">M</text>
+        <!-- Spinning indicator dot -->
+        <circle id="cycleDot" cx="150" cy="20" r="6" fill="#fff"/>
+      </svg>
+      <div class="cycle-center-label">
+        <span>CICLO</span>
+        <span id="cycleActiveLabel">CELULAR</span>
+      </div>
+    </div>
+
+    <div class="cycle-legend">
+      <div class="legend-item" data-delay="0">
+        <div class="legend-dot" style="background:#0a84ff"></div>
+        <div>
+          <h4 style="color:#0a84ff">G1 — Primera Brecha</h4>
+          <p>La célula crece y se prepara sintetizando proteínas y orgánulos antes de replicar su ADN.</p>
+        </div>
+      </div>
+      <div class="legend-item" data-delay="100">
+        <div class="legend-dot" style="background:#30d158"></div>
+        <div>
+          <h4 style="color:#30d158">S — Síntesis</h4>
+          <p>Replicación del ADN: cada cromosoma se duplica formando pares de cromátidas hermanas idénticas.</p>
+        </div>
+      </div>
+      <div class="legend-item" data-delay="200">
+        <div class="legend-dot" style="background:#ff9f0a"></div>
+        <div>
+          <h4 style="color:#ff9f0a">G2 — Segunda Brecha</h4>
+          <p>Verificación del ADN replicado y preparación final de la maquinaria de división celular.</p>
+        </div>
+      </div>
+      <div class="legend-item" data-delay="300">
+        <div class="legend-dot" style="background:#bf5af2"></div>
+        <div>
+          <h4 style="color:#bf5af2">M — Mitosis / Meiosis</h4>
+          <p>División nuclear y citoplasmática. El material genético se separa en células hijas.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════ MITOSIS ═══════════════════════ -->
+<section class="sec">
+  <div class="chip reveal">Mitosis</div>
+  <h2 class="sec-title reveal d1">Cuatro fases<br>de perfección</h2>
+  <p class="sec-desc reveal d2">La mitosis produce dos células hijas genéticamente idénticas a la célula madre, esenciales para el crecimiento y la reparación de tejidos.</p>
+
+  <div class="phases-grid">
+    <!-- INTERFASE -->
+    <div class="phase-card" id="pc0">
+      <svg class="phase-icon" viewBox="0 0 110 110">
+        <ellipse cx="55" cy="55" rx="50" ry="48" fill="rgba(10,132,255,0.08)" stroke="#0a84ff" stroke-width="1.5"/>
+        <ellipse cx="55" cy="55" rx="22" ry="21" fill="rgba(191,90,242,0.15)" stroke="#bf5af2" stroke-width="1.2"/>
+        <path d="M44,52 Q51,46 58,52 Q65,58 72,52" stroke="#bf5af2" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M46,60 Q53,54 60,60" stroke="#bf5af2" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="84" cy="38" rx="8" ry="4" fill="rgba(48,209,88,0.2)" stroke="#30d158" stroke-width="0.8" transform="rotate(-20,84,38)"/>
+        <ellipse cx="30" cy="72" rx="7" ry="3" fill="rgba(48,209,88,0.2)" stroke="#30d158" stroke-width="0.8" transform="rotate(15,30,72)"/>
+        <circle cx="82" cy="74" r="4" fill="rgba(255,159,10,0.2)" stroke="#ff9f0a" stroke-width="0.8"/>
+        <rect x="50" y="26" width="10" height="3.5" rx="1.8" fill="rgba(90,200,250,0.5)" stroke="#5ac8fa" stroke-width="0.7"/>
+        <rect x="50" y="31" width="10" height="3.5" rx="1.8" fill="rgba(90,200,250,0.35)" stroke="#5ac8fa" stroke-width="0.7"/>
+      </svg>
+      <div class="phase-name">Interfase</div>
+      <div class="phase-desc">La célula crece, replica su ADN y se prepara. No es mitosis propiamente, pero es la fase más larga del ciclo (G1 + S + G2).</div>
+      <span class="phase-badge">PREPARACIÓN</span>
+    </div>
+
+    <!-- PROFASE -->
+    <div class="phase-card" id="pc1">
+      <svg class="phase-icon" viewBox="0 0 110 110">
+        <ellipse cx="55" cy="55" rx="50" ry="48" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="1.5" stroke-dasharray="8 5"/>
+        <!-- Chromosomes condensing -->
+        <g>
+          <line x1="36" y1="32" x2="44" y2="40" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+          <line x1="44" y1="32" x2="36" y2="40" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <g>
+          <line x1="54" y1="38" x2="62" y2="46" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+          <line x1="62" y1="38" x2="54" y2="46" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <g>
+          <line x1="66" y1="50" x2="74" y2="58" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+          <line x1="74" y1="50" x2="66" y2="58" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <g>
+          <line x1="38" y1="60" x2="46" y2="68" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+          <line x1="46" y1="60" x2="38" y2="68" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        <!-- Spindle fibers forming -->
+        <line x1="55" y1="10" x2="36" y2="55" stroke="rgba(90,200,250,0.5)" stroke-width="0.8"/>
+        <line x1="55" y1="10" x2="55" y2="55" stroke="rgba(90,200,250,0.5)" stroke-width="0.8"/>
+        <line x1="55" y1="10" x2="74" y2="55" stroke="rgba(90,200,250,0.5)" stroke-width="0.8"/>
+        <circle cx="55" cy="9" r="4" fill="rgba(90,200,250,0.6)" stroke="#5ac8fa" stroke-width="1"/>
+        <circle cx="55" cy="100" r="4" fill="rgba(90,200,250,0.6)" stroke="#5ac8fa" stroke-width="1"/>
+        <line x1="55" y1="100" x2="36" y2="55" stroke="rgba(90,200,250,0.5)" stroke-width="0.8"/>
+        <line x1="55" y1="100" x2="55" y2="55" stroke="rgba(90,200,250,0.5)" stroke-width="0.8"/>
+        <line x1="55" y1="100" x2="74" y2="55" stroke="rgba(90,200,250,0.5)" stroke-width="0.8"/>
+      </svg>
+      <div class="phase-name">Profase</div>
+      <div class="phase-desc">Los cromosomas se condensan y se vuelven visibles. La membrana nuclear se desintegra y se forman las fibras del huso.</div>
+      <span class="phase-badge">FASE 1</span>
+    </div>
+
+    <!-- METAFASE -->
+    <div class="phase-card" id="pc2">
+      <svg class="phase-icon" viewBox="0 0 110 110">
+        <ellipse cx="55" cy="55" rx="50" ry="48" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="1.5"/>
+        <!-- Metaphase plate line -->
+        <line x1="55" y1="14" x2="55" y2="96" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="3 3"/>
+        <!-- Chromosomes at equator -->
+        <g transform="translate(55,35)">
+          <line x1="-8" y1="-5" x2="0" y2="0" stroke="#bf5af2" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="-5" x2="0" y2="0" stroke="#bf5af2" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="-8" y1="5" x2="0" y2="0" stroke="#bf5af2" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="5" x2="0" y2="0" stroke="#bf5af2" stroke-width="3.5" stroke-linecap="round"/>
+        </g>
+        <g transform="translate(55,55)">
+          <line x1="-8" y1="-5" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="-5" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="-8" y1="5" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="5" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3.5" stroke-linecap="round"/>
+        </g>
+        <g transform="translate(55,75)">
+          <line x1="-8" y1="-5" x2="0" y2="0" stroke="#30d158" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="-5" x2="0" y2="0" stroke="#30d158" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="-8" y1="5" x2="0" y2="0" stroke="#30d158" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="5" x2="0" y2="0" stroke="#30d158" stroke-width="3.5" stroke-linecap="round"/>
+        </g>
+        <!-- Spindle -->
+        <circle cx="55" cy="9" r="4" fill="rgba(90,200,250,0.6)" stroke="#5ac8fa" stroke-width="1"/>
+        <circle cx="55" cy="100" r="4" fill="rgba(90,200,250,0.6)" stroke="#5ac8fa" stroke-width="1"/>
+        <line x1="55" y1="9" x2="47" y2="55" stroke="rgba(90,200,250,0.4)" stroke-width="0.8"/>
+        <line x1="55" y1="9" x2="63" y2="55" stroke="rgba(90,200,250,0.4)" stroke-width="0.8"/>
+        <line x1="55" y1="100" x2="47" y2="55" stroke="rgba(90,200,250,0.4)" stroke-width="0.8"/>
+        <line x1="55" y1="100" x2="63" y2="55" stroke="rgba(90,200,250,0.4)" stroke-width="0.8"/>
+      </svg>
+      <div class="phase-name">Metafase</div>
+      <div class="phase-desc">Los cromosomas se alinean perfectamente en la placa ecuatorial. Es la fase más fácil de observar al microscopio.</div>
+      <span class="phase-badge">FASE 2</span>
+    </div>
+
+    <!-- ANAFASE -->
+    <div class="phase-card" id="pc3">
+      <svg class="phase-icon" viewBox="0 0 110 110">
+        <ellipse cx="55" cy="55" rx="44" ry="50" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="1.5"/>
+        <!-- Chromosomes moving to poles -->
+        <g transform="translate(55,22)">
+          <line x1="-9" y1="-4" x2="0" y2="0" stroke="#bf5af2" stroke-width="3" stroke-linecap="round"/>
+          <line x1="9" y1="-4" x2="0" y2="0" stroke="#bf5af2" stroke-width="3" stroke-linecap="round"/>
+          <line x1="-9" y1="4" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3" stroke-linecap="round"/>
+          <line x1="9" y1="4" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <g transform="translate(55,40)">
+          <line x1="-8" y1="-4" x2="0" y2="0" stroke="#30d158" stroke-width="3" stroke-linecap="round"/>
+          <line x1="8" y1="-4" x2="0" y2="0" stroke="#30d158" stroke-width="3" stroke-linecap="round"/>
+          <line x1="-8" y1="4" x2="0" y2="0" stroke="#ff9f0a" stroke-width="3" stroke-linecap="round"/>
+          <line x1="8" y1="4" x2="0" y2="0" stroke="#ff9f0a" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <!-- Bottom chromosomes -->
+        <g transform="translate(55,73)">
+          <line x1="-9" y1="-4" x2="0" y2="0" stroke="#bf5af2" stroke-width="3" stroke-linecap="round"/>
+          <line x1="9" y1="-4" x2="0" y2="0" stroke="#bf5af2" stroke-width="3" stroke-linecap="round"/>
+          <line x1="-9" y1="4" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3" stroke-linecap="round"/>
+          <line x1="9" y1="4" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <g transform="translate(55,90)">
+          <line x1="-8" y1="-4" x2="0" y2="0" stroke="#30d158" stroke-width="3" stroke-linecap="round"/>
+          <line x1="8" y1="-4" x2="0" y2="0" stroke="#30d158" stroke-width="3" stroke-linecap="round"/>
+          <line x1="-8" y1="4" x2="0" y2="0" stroke="#ff9f0a" stroke-width="3" stroke-linecap="round"/>
+          <line x1="8" y1="4" x2="0" y2="0" stroke="#ff9f0a" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <!-- Arrows indicating movement -->
+        <text x="55" y="58" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="18">↕</text>
+      </svg>
+      <div class="phase-name">Anafase</div>
+      <div class="phase-desc">Las cromátidas hermanas se separan y viajan a polos opuestos tirando del huso acromático. La célula se alarga.</div>
+      <span class="phase-badge">FASE 3</span>
+    </div>
+
+    <!-- TELOFASE -->
+    <div class="phase-card" id="pc4">
+      <svg class="phase-icon" viewBox="0 0 110 110">
+        <!-- Two nuclei forming -->
+        <ellipse cx="55" cy="28" rx="38" ry="23" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="1.5" stroke-dasharray="8 4"/>
+        <ellipse cx="55" cy="82" rx="38" ry="23" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="1.5" stroke-dasharray="8 4"/>
+        <!-- Nuclear membranes -->
+        <ellipse cx="55" cy="28" rx="20" ry="13" fill="rgba(191,90,242,0.1)" stroke="#bf5af2" stroke-width="1"/>
+        <ellipse cx="55" cy="82" rx="20" ry="13" fill="rgba(191,90,242,0.1)" stroke="#bf5af2" stroke-width="1"/>
+        <!-- Cleavage furrow -->
+        <line x1="15" y1="55" x2="95" y2="55" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <!-- Chromosomes decondensing -->
+        <path d="M44,25 Q51,20 58,25 Q65,30 52,30" stroke="#bf5af2" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <path d="M44,78 Q51,73 58,78 Q65,83 52,83" stroke="#bf5af2" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div class="phase-name">Telofase</div>
+      <div class="phase-desc">Se reconstituyen las membranas nucleares, los cromosomas se descondansan y la citocinesis separa el citoplasma en dos células hijas.</div>
+      <span class="phase-badge">FASE 4</span>
+    </div>
+  </div>
+
+  <!-- Photo strip -->
+  <div class="photo-strip" style="margin-top:48px">
+    <img src="assets/cromosomas.jpg" alt="Cromosomas en metafase" class="strip-photo" id="sp1" onerror="this.outerHTML='<div class=\'strip-photo-fallback\' style=\'background:rgba(10,132,255,0.06);border:1px solid rgba(10,132,255,0.2)\'><span>📸 assets/cromosomas.jpg</span></div>'">
+    <img src="assets/microscopio.jpg" alt="Célula en mitosis" class="strip-photo" id="sp2" style="transition-delay:0.15s" onerror="this.outerHTML='<div class=\'strip-photo-fallback\' style=\'background:rgba(191,90,242,0.06);border:1px solid rgba(191,90,242,0.2)\'><span>📸 assets/microscopio.jpg</span></div>'">
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════ MEIOSIS ═══════════════════════ -->
+<section class="sec">
+  <div class="chip purple reveal">Meiosis</div>
+  <h2 class="sec-title reveal d1">Dos divisiones.<br>Cuatro destinos únicos.</h2>
+  <p class="sec-desc reveal d2">La meiosis es el proceso exclusivo de las células germinales. Produce cuatro células haploides genéticamente distintas — la clave de la diversidad biológica.</p>
+
+  <div class="meiosis-grid" style="margin-top:60px">
+    <!-- Meiosis I -->
+    <div class="meiosis-card" id="mc1">
+      <div class="chip purple" style="font-size:10px;padding:3px 10px">MEIOSIS I — Reducción</div>
+      <h3 style="color:var(--purple);margin-top:12px">División Reductora</h3>
+      <p>Los cromosomas homólogos se emparejan y ocurre el <strong style="color:var(--purple)">entrecruzamiento (crossing over)</strong> en Profase I: intercambio de segmentos de ADN entre cromátidas no hermanas. El resultado son 2 células haploides con cromátidas duplicadas.</p>
+      <!-- Crossing over SVG -->
+      <svg class="meiosis-visual-svg" width="260" height="120" viewBox="0 0 260 120" id="crossoverSvg">
+        <!-- Chromosome pair before -->
+        <text x="40" y="14" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" letter-spacing="1">ANTES</text>
+        <rect x="34" y="20" width="12" height="70" rx="6" fill="rgba(191,90,242,0.6)" stroke="#bf5af2" stroke-width="1.5"/>
+        <rect x="46" y="20" width="12" height="70" rx="6" fill="rgba(90,200,250,0.6)" stroke="#5ac8fa" stroke-width="1.5"/>
+        <!-- Arrow -->
+        <text x="95" y="62" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="22">→</text>
+        <!-- Crossing over in middle -->
+        <text x="145" y="14" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" letter-spacing="1">CROSSING OVER</text>
+        <rect x="133" y="20" width="12" height="70" rx="6" fill="rgba(191,90,242,0.6)" stroke="#bf5af2" stroke-width="1.5"/>
+        <rect x="145" y="20" width="12" height="70" rx="6" fill="rgba(90,200,250,0.6)" stroke="#5ac8fa" stroke-width="1.5"/>
+        <!-- Cross lines (the actual crossing) -->
+        <path class="co-path" d="M145,45 Q152,55 157,55" stroke="#bf5af2" stroke-width="2" fill="none"/>
+        <path class="co-path" d="M157,45 Q152,55 145,55" stroke="#5ac8fa" stroke-width="2" fill="none"/>
+        <!-- Result blocks showing mixed colors -->
+        <text x="222" y="14" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9" letter-spacing="1">RESULTADO</text>
+        <rect x="208" y="20" width="12" height="28" rx="6" fill="rgba(191,90,242,0.6)" stroke="#bf5af2" stroke-width="1.2"/>
+        <rect x="208" y="48" width="12" height="22" rx="6" fill="rgba(90,200,250,0.6)" stroke="#5ac8fa" stroke-width="1.2"/>
+        <rect x="220" y="20" width="12" height="22" rx="6" fill="rgba(191,90,242,0.6)" stroke="#bf5af2" stroke-width="1.2"/>
+        <rect x="220" y="42" width="12" height="28" rx="6" fill="rgba(90,200,250,0.6)" stroke="#5ac8fa" stroke-width="1.2"/>
+        <!-- Arrow -->
+        <text x="192" y="62" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="22">→</text>
+      </svg>
+    </div>
+
+    <!-- Meiosis II -->
+    <div class="meiosis-card" id="mc2" style="transition-delay:0.15s">
+      <div class="chip purple" style="font-size:10px;padding:3px 10px">MEIOSIS II — División</div>
+      <h3 style="color:var(--teal);margin-top:12px">División Ecuatorial</h3>
+      <p>Similar a una mitosis pero sin replicación previa del ADN. Las cromátidas hermanas se separan produciendo <strong style="color:var(--teal)">4 células haploides (n)</strong>, cada una con información genética única — los gametos.</p>
+      <!-- 1→2→4 cells SVG -->
+      <svg class="meiosis-visual-svg" width="260" height="120" viewBox="0 0 260 120">
+        <!-- 1 cell (2n) -->
+        <circle cx="30" cy="60" r="22" fill="rgba(191,90,242,0.1)" stroke="#bf5af2" stroke-width="1.5"/>
+        <text x="30" y="64" text-anchor="middle" fill="#bf5af2" font-size="10" font-weight="700">2n</text>
+        <text x="30" y="94" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8">Diploide</text>
+        <!-- Arrow -->
+        <text x="72" y="65" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="18">→</text>
+        <text x="72" y="80" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="7">Meiosis I</text>
+        <!-- 2 cells (n) -->
+        <circle cx="105" cy="44" r="17" fill="rgba(90,200,250,0.1)" stroke="#5ac8fa" stroke-width="1.5"/>
+        <text x="105" y="48" text-anchor="middle" fill="#5ac8fa" font-size="9" font-weight="700">n</text>
+        <circle cx="105" cy="78" r="17" fill="rgba(90,200,250,0.1)" stroke="#5ac8fa" stroke-width="1.5"/>
+        <text x="105" y="82" text-anchor="middle" fill="#5ac8fa" font-size="9" font-weight="700">n</text>
+        <!-- Arrow -->
+        <text x="146" y="65" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="18">→</text>
+        <text x="146" y="80" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="7">Meiosis II</text>
+        <!-- 4 cells (n) -->
+        <circle cx="182" cy="32" r="13" fill="rgba(48,209,88,0.12)" stroke="#30d158" stroke-width="1.2"/>
+        <text x="182" y="36" text-anchor="middle" fill="#30d158" font-size="8" font-weight="700">n</text>
+        <circle cx="205" cy="32" r="13" fill="rgba(48,209,88,0.12)" stroke="#30d158" stroke-width="1.2"/>
+        <text x="205" y="36" text-anchor="middle" fill="#30d158" font-size="8" font-weight="700">n</text>
+        <circle cx="182" cy="85" r="13" fill="rgba(48,209,88,0.12)" stroke="#30d158" stroke-width="1.2"/>
+        <text x="182" y="89" text-anchor="middle" fill="#30d158" font-size="8" font-weight="700">n</text>
+        <circle cx="205" cy="85" r="13" fill="rgba(48,209,88,0.12)" stroke="#30d158" stroke-width="1.2"/>
+        <text x="205" y="89" text-anchor="middle" fill="#30d158" font-size="8" font-weight="700">n</text>
+        <text x="193" y="110" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8">4 Gametos</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Gametos photo -->
+  <div style="margin-top:48px;border-radius:22px;overflow:hidden;border:1px solid var(--border);position:relative;height:280px;background:rgba(191,90,242,0.05)" class="reveal d3">
+    <img src="assets/gametos.jpg" alt="Gametos" style="width:100%;height:100%;object-fit:cover;opacity:0.85" onerror="this.style.display='none'">
+    <div style="position:absolute;inset:0;background:linear-gradient(to right,rgba(0,0,0,0.85) 30%,transparent);display:flex;align-items:center;padding:48px">
+      <div>
+        <div class="chip purple" style="margin-bottom:16px">Resultado Final</div>
+        <h3 style="font-size:28px;font-weight:700;letter-spacing:-0.02em;margin-bottom:10px">Diversidad Genética</h3>
+        <p style="font-size:15px;color:var(--muted);max-width:380px;line-height:1.7">El crossing over y la segregación independiente de cromosomas generan una variabilidad genética prácticamente infinita en los gametos producidos.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════ COMPARATIVA ═══════════════════════ -->
+<section class="sec" id="compare">
+  <div class="chip orange reveal">Comparativa</div>
+  <h2 class="sec-title reveal d1">Mitosis vs Meiosis</h2>
+  <p class="sec-desc reveal d2">Dos procesos distintos con objetivos fundamentalmente diferentes para el organismo.</p>
+
+  <div class="compare-wrap reveal d3">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th style="color:var(--muted)">Característica</th>
+          <th>⬤ Mitosis</th>
+          <th>⬤ Meiosis</th>
+        </tr>
+      </thead>
+      <tbody id="compareBody">
+        <tr><td>Resultado</td><td class="val-blue">2 células hijas</td><td class="val-purple">4 células hijas</td></tr>
+        <tr><td>Ploidía</td><td class="val-blue">Diploides (2n)</td><td class="val-purple">Haploides (n)</td></tr>
+        <tr><td>Genética</td><td class="val-blue">Idénticas a la célula madre</td><td class="val-purple">Genéticamente únicas</td></tr>
+        <tr><td>Divisiones</td><td class="val-blue">1 división</td><td class="val-purple">2 divisiones</td></tr>
+        <tr><td>Crossing over</td><td class="val-blue">No ocurre</td><td class="val-purple">Sí, en Profase I</td></tr>
+        <tr><td>Tipo de célula</td><td class="val-blue">Somáticas (cuerpo)</td><td class="val-purple">Germinales (gónadas)</td></tr>
+        <tr><td>Función</td><td class="val-blue">Crecimiento y reparación</td><td class="val-purple">Reproducción sexual</td></tr>
+        <tr><td>En humanos</td><td class="val-blue">37 billones de células</td><td class="val-purple">Esperma y óvulos</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════ MINI-JUEGO ═══════════════════════ -->
+<section class="sec" id="game-section">
+  <div class="chip green reveal">Trivia Interactiva</div>
+  <h2 class="sec-title reveal d1">¿Cuánto<br>aprendiste?</h2>
+  <p class="sec-desc reveal d2">Pon a prueba tus conocimientos sobre la división celular. El panel desliza de derecha a izquierda.</p>
+
+  <div class="game-outer reveal d3">
+    <!-- Intro panel -->
+    <div id="game-intro" style="text-align:center;padding:60px 48px">
+      <svg width="100" height="100" viewBox="0 0 100 100" style="margin-bottom:24px">
+        <circle cx="50" cy="50" r="45" fill="rgba(48,209,88,0.1)" stroke="#30d158" stroke-width="1.5" stroke-dasharray="8 5" style="animation:spinSlow 12s linear infinite;transform-origin:50px 50px"/>
+        <circle cx="50" cy="50" r="32" fill="rgba(48,209,88,0.06)" stroke="#30d158" stroke-width="1"/>
+        <text x="50" y="58" text-anchor="middle" font-size="30">🔬</text>
+      </svg>
+      <h3 style="font-size:24px;font-weight:700;margin-bottom:12px">Identifica la Fase</h3>
+      <p style="color:var(--muted);font-size:15px;line-height:1.7;max-width:400px;margin:0 auto">5 preguntas sobre las fases de la mitosis. Observa la célula y elige la fase correcta.</p>
+      <button class="play-btn" onclick="startGame()">
+        <span>▶</span> Comenzar
+      </button>
+    </div>
+
+    <!-- Game panel -->
+    <div id="game-play">
+      <div class="game-progress" id="gameProgress"></div>
+      <div id="gameContent"></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══════════════════════ DATOS CURIOSOS ═══════════════════════ -->
+<section class="sec">
+  <div class="chip reveal">Datos Fascinantes</div>
+  <h2 class="sec-title reveal d1">La magnitud<br>de lo microscópico</h2>
+  <p class="sec-desc reveal d2">Números que ponen en perspectiva la impresionante escala de la división celular en el cuerpo humano.</p>
+
+  <div class="stats-grid">
+    <div class="stat-card" id="st0">
+      <div class="stat-num" style="color:var(--blue)" data-target="37">0</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">billones</div>
+      <div class="stat-label" style="margin-top:8px">Células en el cuerpo humano adulto — todas originadas por mitosis</div>
+    </div>
+    <div class="stat-card" id="st1">
+      <div class="stat-num" style="color:var(--purple)" data-target="3.8" data-decimal="1">0</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">millones/seg</div>
+      <div class="stat-label" style="margin-top:8px">Células nuevas producidas por segundo en el cuerpo humano</div>
+    </div>
+    <div class="stat-card" id="st2">
+      <div class="stat-num" style="color:var(--green)" data-target="46">0</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">cromosomas</div>
+      <div class="stat-label" style="margin-top:8px">Por célula somática humana (2n). Los gametos tienen 23 (n)</div>
+    </div>
+    <div class="stat-card" id="st3">
+      <div class="stat-num" style="color:var(--orange)" data-target="1">0</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">hora</div>
+      <div class="stat-label" style="margin-top:8px">Duración aproximada de una mitosis completa en células animales</div>
+    </div>
+    <div class="stat-card" id="st4">
+      <div class="stat-num" style="color:var(--teal)" data-target="200" data-suffix="+">0</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">tipos celulares</div>
+      <div class="stat-label" style="margin-top:8px">En el cuerpo humano, todos originados desde un único cigoto</div>
+    </div>
+    <div class="stat-card" id="st5">
+      <div class="stat-num" style="color:var(--red)" data-target="8">0</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">millones de años</div>
+      <div class="stat-label" style="margin-top:8px">Estimación de cuándo surgió la meiosis en los organismos eucariotas</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+<footer>
+  <div class="footer-logo">División Celular</div>
+  <p>Biología · Citología · Genética</p>
+  <p style="margin-top:8px;opacity:0.5;font-size:11px">Mitosis • Meiosis • Ciclo Celular</p>
+</footer>
+
+<script>
+  /* ═══ PARTICLES ═══ */
+  const colors = ['#0a84ff','#bf5af2','#30d158','#5ac8fa','#ff9f0a'];
+  for (let i = 0; i < 28; i++) {
+    const d = document.createElement('div');
+    d.className = 'pt';
+    const s = Math.random() * 14 + 4;
+    d.style.cssText = `
+      width:${s}px;height:${s}px;
+      left:${Math.random()*100}%;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      opacity:${Math.random()*0.12+0.04};
+      animation-duration:${Math.random()*18+10}s;
+      animation-delay:${Math.random()*15}s;
+    `;
+    document.getElementById('particles').appendChild(d);
+  }
+
+  /* ═══ INTERSECTION OBSERVER ═══ */
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('show');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll('.reveal, .phase-card, .meiosis-card, .stat-card, .legend-item, .strip-photo').forEach(el => io.observe(el));
+
+  /* ═══ PHASE CARDS OBSERVER ═══ */
+  const phaseCards = document.querySelectorAll('.phase-card');
+  const phaseOb = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const idx = [...phaseCards].indexOf(e.target);
+        setTimeout(() => e.target.classList.add('show'), idx * 100);
+        phaseOb.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  phaseCards.forEach(c => phaseOb.observe(c));
+
+  /* ═══ COMPARE TABLE ROWS ═══ */
+  const rowOb = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const rows = e.target.querySelectorAll('tr');
+        rows.forEach((r,i) => setTimeout(() => r.classList.add('show'), i*80));
+        rowOb.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  const cb = document.getElementById('compareBody');
+  if (cb) rowOb.observe(cb);
+
+  /* ═══ LEGEND ITEMS ═══ */
+  const legendOb = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const delay = parseInt(e.target.dataset.delay || 0);
+        setTimeout(() => e.target.classList.add('show'), delay);
+        legendOb.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.2 });
+  document.querySelectorAll('.legend-item').forEach(el => legendOb.observe(el));
+
+  /* ═══ WORD-BY-WORD REVEAL ═══ */
+  function setupWordReveal(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const words = el.textContent.trim().split(/\s+/);
+    el.innerHTML = words.map((w, i) =>
+      `<span class="w" style="transition-delay:${i * 55}ms">${w} </span>`
+    ).join('');
+    const ob = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.querySelectorAll('.w').forEach(s => s.classList.add('show'));
+          ob.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.3 });
+    ob.observe(el);
+  }
+  setupWordReveal('intro-text');
+  setupWordReveal('intro-text2');
+
+  /* ═══ INTRO PHOTO OBSERVER ═══ */
+  const photoOb = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('show'); photoOb.unobserve(e.target); }
+    });
+  }, { threshold: 0.3 });
+  const ip = document.getElementById('introPhoto');
+  if (ip) photoOb.observe(ip);
+
+  /* ═══ CELL CYCLE ANIMATION ═══ */
+  let cycleAngle = 0;
+  const phases = [
+    { name: 'G1', color: '#0a84ff', range: [0, 90] },
+    { name: 'S',  color: '#30d158', range: [90, 155] },
+    { name: 'G2', color: '#ff9f0a', range: [155, 205] },
+    { name: 'M',  color: '#bf5af2', range: [205, 360] },
+  ];
+  const cycleLabel = document.getElementById('cycleActiveLabel');
+  const cycleDot   = document.getElementById('cycleDot');
+
+  function animateCycle() {
+    cycleAngle = (cycleAngle + 0.6) % 360;
+    const rad = (cycleAngle - 90) * Math.PI / 180;
+    const r = 130;
+    const cx = 150 + r * Math.cos(rad);
+    const cy = 150 + r * Math.sin(rad);
+    cycleDot.setAttribute('cx', cx);
+    cycleDot.setAttribute('cy', cy);
+    const ph = phases.find(p => cycleAngle >= p.range[0] && cycleAngle < p.range[1]);
+    if (ph && cycleLabel) {
+      cycleLabel.textContent = ph.name;
+      cycleLabel.style.color = ph.color;
+    }
+    requestAnimationFrame(animateCycle);
+  }
+  const cycleOb = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { animateCycle(); cycleOb.disconnect(); } });
+  }, { threshold: 0.3 });
+  const cw = document.querySelector('.cycle-svg-wrap');
+  if (cw) cycleOb.observe(cw);
+
+  /* ═══ CROSSING OVER ANIMATION ═══ */
+  const coOb = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.co-path').forEach(p => p.classList.add('animate'));
+        coOb.disconnect();
+      }
+    });
+  }, { threshold: 0.4 });
+  const coSvg = document.getElementById('crossoverSvg');
+  if (coSvg) coOb.observe(coSvg);
+
+  /* ═══ STAT COUNTERS ═══ */
+  function animateCounter(el) {
+    const numEl = el.querySelector('[data-target]');
+    if (!numEl) return;
+    const target = parseFloat(numEl.dataset.target);
+    const isDecimal = numEl.dataset.decimal === '1';
+    const suffix = numEl.dataset.suffix || '';
+    const duration = 1800;
+    const start = performance.now();
+    function tick(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+      const val = target * ease;
+      numEl.textContent = (isDecimal ? val.toFixed(1) : Math.round(val)) + suffix;
+      if (t < 1) requestAnimationFrame(tick);
+      else numEl.textContent = (isDecimal ? target.toFixed(1) : target) + suffix;
+    }
+    requestAnimationFrame(tick);
+  }
+  const statOb = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('show');
+        setTimeout(() => animateCounter(e.target), 300);
+        statOb.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.3 });
+  document.querySelectorAll('.stat-card').forEach(c => statOb.observe(c));
+
+  /* ═══ MINI GAME ═══ */
+  const questions = [
+    {
+      phase: 'Interfase',
+      desc: 'La célula se prepara, con núcleo bien definido y cromatina dispersa.',
+      svg: `<svg width="140" height="140" viewBox="0 0 110 110">
+        <ellipse cx="55" cy="55" rx="50" ry="48" fill="rgba(10,132,255,0.1)" stroke="#0a84ff" stroke-width="2"/>
+        <ellipse cx="55" cy="55" rx="22" ry="20" fill="rgba(191,90,242,0.15)" stroke="#bf5af2" stroke-width="1.5"/>
+        <path d="M44,52 Q51,46 58,52 Q65,58 72,52" stroke="#bf5af2" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <path d="M46,60 Q53,54 60,60" stroke="#bf5af2" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="84" cy="38" rx="8" ry="4" fill="rgba(48,209,88,0.25)" stroke="#30d158" stroke-width="1" transform="rotate(-20,84,38)"/>
+        <ellipse cx="30" cy="75" rx="7" ry="3" fill="rgba(48,209,88,0.2)" stroke="#30d158" stroke-width="0.8"/>
+        <circle cx="85" cy="76" r="4" fill="rgba(255,159,10,0.25)" stroke="#ff9f0a" stroke-width="1"/>
+      </svg>`,
+      options: ['Interfase', 'Profase', 'Metafase', 'Telofase'],
+      answer: 'Interfase'
+    },
+    {
+      phase: 'Profase',
+      desc: 'Los cromosomas son visibles y el huso se está formando.',
+      svg: `<svg width="140" height="140" viewBox="0 0 110 110">
+        <ellipse cx="55" cy="55" rx="50" ry="48" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="2" stroke-dasharray="7 5"/>
+        <g><line x1="35" y1="36" x2="43" y2="44" stroke="#bf5af2" stroke-width="5" stroke-linecap="round"/>
+           <line x1="43" y1="36" x2="35" y2="44" stroke="#bf5af2" stroke-width="5" stroke-linecap="round"/></g>
+        <g><line x1="55" y1="40" x2="63" y2="48" stroke="#5ac8fa" stroke-width="5" stroke-linecap="round"/>
+           <line x1="63" y1="40" x2="55" y2="48" stroke="#5ac8fa" stroke-width="5" stroke-linecap="round"/></g>
+        <g><line x1="67" y1="52" x2="75" y2="60" stroke="#30d158" stroke-width="5" stroke-linecap="round"/>
+           <line x1="75" y1="52" x2="67" y2="60" stroke="#30d158" stroke-width="5" stroke-linecap="round"/></g>
+        <g><line x1="36" y1="62" x2="44" y2="70" stroke="#ff9f0a" stroke-width="5" stroke-linecap="round"/>
+           <line x1="44" y1="62" x2="36" y2="70" stroke="#ff9f0a" stroke-width="5" stroke-linecap="round"/></g>
+        <circle cx="55" cy="9" r="4" fill="rgba(90,200,250,0.8)" stroke="#5ac8fa" stroke-width="1.2"/>
+        <circle cx="55" cy="100" r="4" fill="rgba(90,200,250,0.8)" stroke="#5ac8fa" stroke-width="1.2"/>
+      </svg>`,
+      options: ['Anafase', 'Profase', 'Metafase', 'Interfase'],
+      answer: 'Profase'
+    },
+    {
+      phase: 'Metafase',
+      desc: 'Los cromosomas forman una línea perfecta en el centro de la célula.',
+      svg: `<svg width="140" height="140" viewBox="0 0 110 110">
+        <ellipse cx="55" cy="55" rx="50" ry="48" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="2"/>
+        <line x1="55" y1="12" x2="55" y2="98" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <g transform="translate(55,30)"><line x1="-9" y1="-5" x2="0" y2="0" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+          <line x1="9" y1="-5" x2="0" y2="0" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+          <line x1="-9" y1="5" x2="0" y2="0" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+          <line x1="9" y1="5" x2="0" y2="0" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/></g>
+        <g transform="translate(55,50)"><line x1="-9" y1="-5" x2="0" y2="0" stroke="#5ac8fa" stroke-width="4" stroke-linecap="round"/>
+          <line x1="9" y1="-5" x2="0" y2="0" stroke="#5ac8fa" stroke-width="4" stroke-linecap="round"/>
+          <line x1="-9" y1="5" x2="0" y2="0" stroke="#5ac8fa" stroke-width="4" stroke-linecap="round"/>
+          <line x1="9" y1="5" x2="0" y2="0" stroke="#5ac8fa" stroke-width="4" stroke-linecap="round"/></g>
+        <g transform="translate(55,70)"><line x1="-9" y1="-5" x2="0" y2="0" stroke="#30d158" stroke-width="4" stroke-linecap="round"/>
+          <line x1="9" y1="-5" x2="0" y2="0" stroke="#30d158" stroke-width="4" stroke-linecap="round"/>
+          <line x1="-9" y1="5" x2="0" y2="0" stroke="#30d158" stroke-width="4" stroke-linecap="round"/>
+          <line x1="9" y1="5" x2="0" y2="0" stroke="#30d158" stroke-width="4" stroke-linecap="round"/></g>
+        <circle cx="55" cy="9" r="4" fill="rgba(90,200,250,0.7)" stroke="#5ac8fa" stroke-width="1.2"/>
+        <circle cx="55" cy="100" r="4" fill="rgba(90,200,250,0.7)" stroke="#5ac8fa" stroke-width="1.2"/>
+      </svg>`,
+      options: ['Profase', 'Telofase', 'Metafase', 'Anafase'],
+      answer: 'Metafase'
+    },
+    {
+      phase: 'Anafase',
+      desc: 'Las cromátidas se separan y migran hacia los polos opuestos.',
+      svg: `<svg width="140" height="140" viewBox="0 0 110 110">
+        <ellipse cx="55" cy="55" rx="44" ry="50" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="2"/>
+        <g transform="translate(55,20)"><line x1="-8" y1="-4" x2="0" y2="0" stroke="#bf5af2" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="-4" x2="0" y2="0" stroke="#bf5af2" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="-8" y1="4" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="4" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3.5" stroke-linecap="round"/></g>
+        <g transform="translate(55,36)"><line x1="-7" y1="-4" x2="0" y2="0" stroke="#30d158" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="7" y1="-4" x2="0" y2="0" stroke="#30d158" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="-7" y1="4" x2="0" y2="0" stroke="#ff9f0a" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="7" y1="4" x2="0" y2="0" stroke="#ff9f0a" stroke-width="3.5" stroke-linecap="round"/></g>
+        <g transform="translate(55,74)"><line x1="-8" y1="-4" x2="0" y2="0" stroke="#bf5af2" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="-4" x2="0" y2="0" stroke="#bf5af2" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="-8" y1="4" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="8" y1="4" x2="0" y2="0" stroke="#5ac8fa" stroke-width="3.5" stroke-linecap="round"/></g>
+        <g transform="translate(55,90)"><line x1="-7" y1="-4" x2="0" y2="0" stroke="#30d158" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="7" y1="-4" x2="0" y2="0" stroke="#30d158" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="-7" y1="4" x2="0" y2="0" stroke="#ff9f0a" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="7" y1="4" x2="0" y2="0" stroke="#ff9f0a" stroke-width="3.5" stroke-linecap="round"/></g>
+        <text x="55" y="60" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="16">⬆⬇</text>
+      </svg>`,
+      options: ['Metafase', 'Telofase', 'Profase', 'Anafase'],
+      answer: 'Anafase'
+    },
+    {
+      phase: 'Telofase',
+      desc: 'Dos nuevos núcleos se forman y el citoplasma comienza a dividirse.',
+      svg: `<svg width="140" height="140" viewBox="0 0 110 110">
+        <ellipse cx="55" cy="28" rx="40" ry="24" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="2" stroke-dasharray="7 4"/>
+        <ellipse cx="55" cy="82" rx="40" ry="24" fill="rgba(10,132,255,0.07)" stroke="#0a84ff" stroke-width="2" stroke-dasharray="7 4"/>
+        <ellipse cx="55" cy="28" rx="20" ry="12" fill="rgba(191,90,242,0.12)" stroke="#bf5af2" stroke-width="1.2"/>
+        <ellipse cx="55" cy="82" rx="20" ry="12" fill="rgba(191,90,242,0.12)" stroke="#bf5af2" stroke-width="1.2"/>
+        <path d="M44,25 Q51,20 58,25 Q65,30 52,30" stroke="#bf5af2" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <path d="M44,79 Q51,74 58,79 Q65,84 52,84" stroke="#bf5af2" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <line x1="15" y1="55" x2="95" y2="55" stroke="rgba(255,255,255,0.3)" stroke-width="2" stroke-dasharray="5 3"/>
+      </svg>`,
+      options: ['Anafase', 'Interfase', 'Profase', 'Telofase'],
+      answer: 'Telofase'
+    }
+  ];
+
+  let currentQ = 0, score = 0, answered = false;
+
+  function startGame() {
+    const wipe = document.getElementById('wipe');
+    wipe.classList.add('go');
+    setTimeout(() => {
+      document.getElementById('game-intro').style.display = 'none';
+      document.getElementById('game-play').style.display = 'block';
+      currentQ = 0; score = 0;
+      renderQuestion();
+    }, 450);
+    setTimeout(() => wipe.classList.remove('go'), 950);
+  }
+
+  function renderQuestion() {
+    answered = false;
+    const q = questions[currentQ];
+    const prog = document.getElementById('gameProgress');
+    prog.innerHTML = questions.map((_,i) =>
+      `<div class="prog-dot ${i < currentQ ? 'done' : i === currentQ ? 'active' : ''}"></div>`
+    ).join('');
+
+    document.getElementById('gameContent').innerHTML = `
+      <div class="game-cell-wrap">${q.svg}</div>
+      <p class="game-question">${q.desc}</p>
+      <div class="game-options">
+        ${q.options.map(o => `<button class="opt-btn" onclick="checkAnswer(this,'${o}')">${o}</button>`).join('')}
+      </div>
+      <div class="game-feedback" id="gameFeedback"></div>
+      <button class="next-btn" id="nextBtn" onclick="nextQuestion()">
+        ${currentQ < questions.length - 1 ? 'Siguiente →' : 'Ver Resultado'}
+      </button>
+    `;
+  }
+
+  function checkAnswer(btn, choice) {
+    if (answered) return;
+    answered = true;
+    const q = questions[currentQ];
+    const allBtns = document.querySelectorAll('.opt-btn');
+    allBtns.forEach(b => b.disabled = true);
+
+    const feedback = document.getElementById('gameFeedback');
+    const nextBtn  = document.getElementById('nextBtn');
+
+    if (choice === q.answer) {
+      btn.classList.add('correct');
+      score++;
+      feedback.className = 'game-feedback ok';
+      feedback.textContent = '✓ ¡Correcto! ' + getExplanation(q.phase);
+    } else {
+      btn.classList.add('wrong');
+      allBtns.forEach(b => { if (b.textContent === q.answer) b.classList.add('correct'); });
+      feedback.className = 'game-feedback err';
+      feedback.textContent = `✗ Era ${q.answer}. ${getExplanation(q.phase)}`;
+    }
+    nextBtn.classList.add('show');
+  }
+
+  function getExplanation(phase) {
+    const ex = {
+      'Interfase':  'Fase de reposo y preparación del ADN.',
+      'Profase':    'Cromosomas visibles, membrana nuclear desintegrada.',
+      'Metafase':   'Cromosomas alineados en la placa ecuatorial.',
+      'Anafase':    'Cromátidas separadas moviéndose a los polos.',
+      'Telofase':   'Dos núcleos formados, citocinesis en marcha.'
+    };
+    return ex[phase] || '';
+  }
+
+  function nextQuestion() {
+    currentQ++;
+    if (currentQ < questions.length) {
+      renderQuestion();
+    } else {
+      showResult();
+    }
+  }
+
+  function showResult() {
+    const pct = Math.round((score / questions.length) * 100);
+    const msg = pct === 100 ? '¡Perfecto! Eres un experto en citología. 🏆' :
+                pct >= 80  ? '¡Muy bien! Tienes un sólido conocimiento. 🎯' :
+                pct >= 60  ? 'Buen intento, sigue repasando las fases. 📚' :
+                             'No te rindas — la práctica lleva a la perfección. 💪';
+
+    document.getElementById('gameProgress').innerHTML = questions.map(() => '<div class="prog-dot done"></div>').join('');
+    document.getElementById('gameContent').innerHTML = `
+      <div class="game-result">
+        <p style="font-size:14px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Tu puntuación</p>
+        <div class="result-score">${score}/${questions.length}</div>
+        <p class="result-msg">${msg}</p>
+        <button class="replay-btn" onclick="restartGame()">↺ Intentar de nuevo</button>
+      </div>
+    `;
+  }
+
+  function restartGame() {
+    const wipe = document.getElementById('wipe');
+    wipe.classList.add('go');
+    setTimeout(() => {
+      currentQ = 0; score = 0;
+      renderQuestion();
+    }, 450);
+    setTimeout(() => wipe.classList.remove('go'), 950);
+  }
+
+  /* ═══ MEIOSIS CARDS OBSERVER ═══ */
+  const mOb = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('show'),
+          e.target.id === 'mc2' ? 150 : 0);
+        mOb.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.meiosis-card').forEach(c => mOb.observe(c));
+
+</script>
+</body>
+</html>
